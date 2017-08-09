@@ -1,0 +1,10 @@
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Debug\ReceiptDeploymentProcess.exe
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\bin\Debug\ReceiptDeploymentProcess.exe
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\bin\Debug\ReceiptDeploymentProcess.pdb
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Debug\ResolveAssemblyReference.cache
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Debug\ReceiptDeploymentProcess.pdb
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\bin\Release\ReceiptDeploymentProcess.exe
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\bin\Release\ReceiptDeploymentProcess.pdb
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Release\ResolveAssemblyReference.cache
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Release\ReceiptDeploymentProcess.exe
+C:\Documents and Settings\Support\My Documents\Visual Studio 2005\Projects\ReceiptDeploymentProcess\ReceiptDeploymentProcess\obj\Release\ReceiptDeploymentProcess.pdb
