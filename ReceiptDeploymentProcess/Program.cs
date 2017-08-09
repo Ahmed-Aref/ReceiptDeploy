@@ -8,14 +8,21 @@ using System.Data;
 using System.Net;
 using System.ServiceProcess;
 
+// Receipt Deploy Process
+// Created by Ahmed Aref
+// v1.0.1
+// 2017-08-09 : Oman
+
 namespace ReceiptDeploymentProcess
 {
     class Program
     {
         //Variables
+        static string Query = "";
         static string version = "3.81";
         static string DPIFile = "DPPrintReceipt_ARLv" + version.Replace(".","") + ".dll";       //The Name of Domino's DLL VB6 File
         static string AREFRECLIB = "AREFRECLIB.dll";                                            //The Name of Customized DLL C#
+        static string Currency = "RO";
 
         static string ServerIP = "192.168.80.80";
         static string ServerDB = "Shared";
@@ -51,7 +58,7 @@ namespace ReceiptDeploymentProcess
             Proc.FileName = @"C:\Windows\System32\cmd.exe";
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             //STEP 1 : Stop WWW Service
             try
             {
@@ -65,7 +72,7 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Stop W3SVC Server [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             // STEP 2 : Stop MSSQLSERVER Service
             try
             {
@@ -79,7 +86,7 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Stop MSSQLSERVER Server [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             // STEP 3 : Start MSSQLSERVER Service
             try
             {
@@ -93,7 +100,7 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Start MSSQLSERVER Server [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             // STEP 4 : Kill Order Entry
             try
             {
@@ -107,7 +114,7 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Kill Order Entry [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             // STEP 5 : Kill Dispatch
             try
             {
@@ -121,7 +128,7 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Kill Dispatch [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
+            //-------------------------------------------------------------------------------------
             // STEP 6 : Kill W3WP Service
             try
             {
@@ -135,18 +142,72 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Kill W3WP [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 7 : Update Store Info
+            //-------------------------------------------------------------------------------------
+            // STEP 7 : Detach Database
             try
             {
-                updateStoreInfo();
-                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Update store Information from Server.");
+                string AttachQuery = @" USE [master]
+                                        EXEC MASTER.dbo.sp_detach_db @dbname = N'Receipt'";
+                SQLUpdateLoccal(AttachQuery);
+                Console.ForegroundColor = ConsoleColor.Yellow; Console.WriteLine("* Warning : Receipt Database Detach");
             }
-            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Update store Information from GOLO [" + EX.Message + "]"); }
+            catch { Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : No Receipt Database"); }
 
 
-            //-----------------------------------------
-            // STEP 8 : Unregist Old DLL
+            //-------------------------------------------------------------------------------------
+            //STEP 8 : Copy Database with overwrite
+            try
+            {
+                File.Copy(System.Environment.CurrentDirectory + @"\Receipt.mdf", @"C:\Program Files (x86)\Microsoft SQL Server\MSSQL.1\MSSQL\Receipt.mdf", true);
+                File.Copy(System.Environment.CurrentDirectory + @"\Receipt_log.ldf", @"C:\Program Files (x86)\Microsoft SQL Server\MSSQL.1\MSSQL\Receipt_log.ldf", true);
+
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Copy database.");
+            }
+            catch { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Copy database."); }
+
+
+            //--------------------------------------------------------------------------------------
+            //STEP 9 : Attach Database
+            try
+            {
+                string AttachQuery = @" USE [master]
+
+                                        CREATE DATABASE [Receipt] ON
+                                        ( FILENAME = 'C:\Program Files (x86)\Microsoft SQL Server\MSSQL.1\MSSQL\Receipt.mdf'),
+                                        ( FILENAME = 'C:\Program Files (x86)\Microsoft SQL Server\MSSQL.1\MSSQL\Receipt_log.ldf')
+                                        FOR ATTACH";
+
+                SQLUpdateLoccal(AttachQuery);
+
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Attach database.");
+            }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Attach database [" + EX.Message + "]"); }
+
+
+            //-------------------------------------------------------------------------------------
+            //STEP 10 : Clean Up Database
+            try
+            {
+                Query = @"  TRUNCATE TABLE Receipt.dbo.cstLocation
+                            TRUNCATE TABLE Receipt.dbo.rcpLog
+                            INSERT INTO Receipt.dbo.rcpLog VALUES(0,GETDATE(),0,'SYS001','Receipt Installed','DeployProcess',GETDATE())
+
+                            Update Receipt.dbo.rcpVariable SET [Value] = 'Dominos' WHERE [Name] = 'Storename_EN'
+                            Update Receipt.dbo.rcpVariable SET [Value] = N'œÊ„Ì‰Ê“' WHERE [Name] = 'Storename_AR'
+                            Update Receipt.dbo.rcpVariable SET [Value] = '0.0' WHERE [Name] = 'Store_Lat'
+                            Update Receipt.dbo.rcpVariable SET [Value] = '0.0' WHERE [Name] = 'Store_Long'
+                            Update Receipt.dbo.rcpVariable SET [Value] = '" + Currency + "' WHERE [Name] = 'Currency'";
+
+                SQLUpdateLoccal(Query);
+
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Clean up Database succeed.");
+
+            }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Cleanup Database failed [" + EX.Message + "]"); }
+
+
+            //-------------------------------------------------------------------------------------
+            // STEP 11 : Unregist DPI DLL
             try
             {
                 YourCommand = @" Regsvr32 -u -s " + "\"" + @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + DPIFile + "\"";
@@ -159,8 +220,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Un-Regist old DLL [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 9 : Rename Old File
+            //-------------------------------------------------------------------------------------
+            // STEP 12 : Rename DPI File
             string DateFormat = DateTime.Now.Year.ToString("d2") + DateTime.Now.Month.ToString("d2") + DateTime.Now.Day.ToString("d2") + DateTime.Now.Hour.ToString("d2") + DateTime.Now.Minute.ToString("d2");
 
             string OldName = @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + DPIFile;
@@ -181,8 +242,8 @@ namespace ReceiptDeploymentProcess
             }
 
 
-            //-----------------------------------------
-            // STEP 11 : Copy Receipt DPI DLL
+            //-------------------------------------------------------------------------------------
+            // STEP 13 : Copy Receipt DPI DLL
             try
             {
                 File.Copy(System.Environment.CurrentDirectory + @"\" + DPIFile, @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + DPIFile, true);
@@ -192,8 +253,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Copy DPI DLL [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 12 : Copy Receipt AREFRECLIB DLL
+            //-------------------------------------------------------------------------------------
+            // STEP 14 : Copy Receipt AREFRECLIB DLL
             try
             {
                 File.Copy(System.Environment.CurrentDirectory + @"\" + AREFRECLIB, @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + AREFRECLIB, true);
@@ -203,9 +264,19 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Copy AREFRECLIB DLL [" + EX.Message + "]"); }
 
 
+            //-------------------------------------------------------------------------------------
+            // STEP 15 : Copy QR DLL
+            try
+            {
+                File.Copy(System.Environment.CurrentDirectory + @"\ThoughtWorks.QRCode.dll", @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\ThoughtWorks.QRCode.dll", true);
 
-            //-----------------------------------------
-            // STEP 13 : Regist the DLL
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Copy QRCode DLL.");
+            }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Copy QRCode DLL [" + EX.Message + "]"); }
+
+
+            //-------------------------------------------------------------------------------------
+            // STEP 16 : Regist DPI DLL
             try
             {
                 YourCommand = @" Regsvr32 -u -s " + "\"" + @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + DPIFile + "\"";
@@ -218,14 +289,14 @@ namespace ReceiptDeploymentProcess
                 pStart = Process.Start(Proc);
                 pStart.WaitForExit();
 
-                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Regist new PULSE DLL.");
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Regist DPI DLL.");
 
             }
-            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Regist new DLLs [" + EX.Message + "]"); }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Regist DPI DLL [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 14 : Regist AREFRECLIB
+            //-------------------------------------------------------------------------------------
+            // STEP 17 : Regist AREFRECLIB DLL
             try
             {
                 YourCommand = @"C:\WINDOWS\Microsoft.NET\Framework\v2.0.50727\RegAsm.exe /codebase /tlb " + "\"" + @"C:\Program Files\Dominos\Pulse\ReceiptPrintDLL\" + AREFRECLIB + "\"";
@@ -239,8 +310,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Regist new Custom DLL. [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 15 : Start Dominos MapMarker Server
+            //-------------------------------------------------------------------------------------
+            // STEP 18 : Start Dominos MapMarker Server
             try
             {
                 YourCommand = @" net start MMS /yes";
@@ -253,8 +324,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Start Dominos MapMarker Server [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 16 : Start Pulse Live Data Refresh Service
+            //-------------------------------------------------------------------------------------
+            // STEP 19 : Start Pulse Live Data Refresh Service
             try
             {
                 YourCommand = @" net start PulseDeviceManager /yes";
@@ -267,8 +338,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : start Dominos Pulse Device Manager Service [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 17 : Start Pulse Server
+            //-------------------------------------------------------------------------------------
+            // STEP 20 : Start Pulse Server
             try
             {
                 YourCommand = @" net start PulseServer /yes";
@@ -281,8 +352,8 @@ namespace ReceiptDeploymentProcess
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Start Dominos Pulse Server [" + EX.Message + "]"); }
 
 
-            //-----------------------------------------
-            // STEP 18 : Start IIS Server
+            //-------------------------------------------------------------------------------------
+            // STEP 21 : Start IIS Server
             try
             {
                 using (ServiceController controller = new ServiceController("IISADMIN"))
@@ -292,6 +363,27 @@ namespace ReceiptDeploymentProcess
                 }
             }
             catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Restart IIS Service [" + EX.Message + "]"); }
+
+            //-------------------------------------------------------------------------------------
+            //STEP 22 : Select ARL as Defualt Printer in Pulse
+            try
+            {
+                string Query = @"UPDATE POS.dbo.System_Settings SET Value = 'ARLv" + version.Replace(".", "") + "' WHERE setting = 'Receipt_Types'";
+                SQLUpdateLoccal(Query);
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Setting the Receipt as the Default.");
+            }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Setting the Receipt as the Default [" + EX.Message + "]"); }
+
+
+            //-------------------------------------------------------------------------------------
+            // STEP 23 : Update Store Info
+            try
+            {
+                updateStoreInfo();
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("* Succeed : Update store Information from Server.");
+            }
+            catch (Exception EX) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("* Failed : Update store Information from GOLO [" + EX.Message + "]"); }
+
         }
 
 
@@ -299,6 +391,11 @@ namespace ReceiptDeploymentProcess
         General Functions*/
         public static void updateStoreInfo()
         {
+            //Read Credintial
+            ServerIP = SQLSelectLoccal("SELECT [Value] FROM Receipt.dbo.rcpVariable WHERE [Name] = 'Server_IP'").Rows[0]["Value"].ToString();
+            ServerUsername = SQLSelectLoccal("SELECT [Value] FROM Receipt.dbo.rcpVariable WHERE [Name] = 'Server_Username'").Rows[0]["Value"].ToString();
+            ServerPassword = SQLSelectLoccal("SELECT [Value] FROM Receipt.dbo.rcpVariable WHERE [Name] = 'Server_Password'").Rows[0]["Value"].ToString();
+
             //Get Store Number from Local
             string StoreNumber = SQLSelectLoccal("SELECT Location_Code From POS.dbo.Location_Codes").Rows[0][0].ToString();
 
@@ -306,7 +403,7 @@ namespace ReceiptDeploymentProcess
             DataTable DT = SQLRemoteQuery(@"SELECT Store_Name,Store_Lat,Store_Long FROM Shared.dbo.Store WHERE Store_Number = " + StoreNumber, ServerIP, ServerDB, ServerUsername, ServerPassword);
 
             //Update Store Information from Remote Server
-            string Query = @"   UPDATE Receipt.dbo.rcpVariable SET Value = '' WHERE Name = 'Storename_AR'
+            Query = @"   UPDATE Receipt.dbo.rcpVariable SET Value = '' WHERE Name = 'Storename_AR'
                                 UPDATE Receipt.dbo.rcpVariable SET Value = '" + DT.Rows[0]["Store_Name"].ToString() + @"' WHERE Name = 'Storename_EN'
                                 UPDATE Receipt.dbo.rcpVariable SET Value = '" + DT.Rows[0]["Store_Lat"].ToString() + @"' WHERE Name = 'Store_Lat'
                                 UPDATE Receipt.dbo.rcpVariable SET Value = '" + DT.Rows[0]["Store_Long"].ToString() + @"' WHERE Name = 'Store_Long'
